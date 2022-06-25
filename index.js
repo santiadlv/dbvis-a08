@@ -37,7 +37,6 @@ var cleanData = data.filter((d) => allDimensions.reduce((isClean, dim) => (d[dim
 var numerics = allDimensions.filter(d => typeof cleanData[0][d] === 'number')
 var categoricals = allDimensions.filter(d => typeof cleanData[0][d] === 'string')
 
-
 //append a circle for each datapoint
 // for cx, cy, fill and r we set dummy values for now 
 var selection = d3.select('g#scatter-points').selectAll('circle').data(cleanData)
@@ -76,21 +75,25 @@ var colorScale = d3.scaleOrdinal()
 selection
 .attr('fill', d => colorScale(d["species"]))
 
-
 var sizeScale = d3.scaleLinear()
 .domain(d3.extent(cleanData, d => d["body_mass_g"]))
 .range([3, 7])
 selection
 .attr('r', (d) => sizeScale(d["body_mass_g"]))
 
-
-
 //TODO:
 // define d3.brush (see https://github.com/d3/d3-brush)
 // and define its event handling
 // add brush selection to the predefined variable brush_area
 
+var brush = d3.brush()
+  .on("brush", updatePlot)
+  .on("end", resetSelection);
 
+brush_area
+  .append("g")
+    .attr("class", "brush")
+    .call(brush);
 
 //TODO:
 // add function to highlight the selected circles on brushstroke
@@ -98,7 +101,25 @@ selection
 // convert all circles to non-brushed
 // filter selection based on boolean function "isBrushed" (see next comment)
 
+d3.selectAll("circle").classed("normal", true);
+var newSelection = null;
 
+function updatePlot(event) {
+  var extent = event.selection;
+  newSelection = selection.filter(function(d) {
+    return isBrushed(extent, d3.select(this));
+  });
+}
+
+function resetSelection(event) {
+  if (event.selection) return;
+  d3.selectAll("circle")
+    .classed("normal", true)
+    .classed("brushed", false)
+    .classed("non_brushed", false);
+
+  newSelection = null;
+}
 
 //TODO:
 // create function to dynamically create a barchart in the barchart element (in index.html)
@@ -115,3 +136,24 @@ selection
 //TODO:
 //create function which returns a boolean value...
 //stating if the cx and cy is located within the brushed area
+
+function isBrushed(extent, obj) {
+  var cx = obj.attr("cx");
+  var cy = obj.attr("cy");
+
+  const [[x0, y0], [x1, y1]] = extent;
+
+  if (cx > x0 && cx < x1 && cy > y0 && cy < y1) {
+    obj.classed("brushed", true)
+      .classed("non_brushed", false)
+      .classed("normal", false);
+    return true
+  }
+    
+  else {
+    obj.classed("brushed", false)
+      .classed("non_brushed", true)
+      .classed("normal", false)
+    return false
+  }
+}
