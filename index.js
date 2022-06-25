@@ -102,13 +102,14 @@ brush_area
 // filter selection based on boolean function "isBrushed" (see next comment)
 
 d3.selectAll("circle").classed("normal", true);
-var newSelection = null;
+var newSelection = selection;
 
 function updatePlot(event) {
   var extent = event.selection;
   newSelection = selection.filter(function(d) {
     return isBrushed(extent, d3.select(this));
   });
+  updateChart();
 }
 
 function resetSelection(event) {
@@ -118,7 +119,8 @@ function resetSelection(event) {
     .classed("brushed", false)
     .classed("non_brushed", false);
 
-  newSelection = null;
+  newSelection = selection;
+  updateChart();
 }
 
 //TODO:
@@ -132,6 +134,65 @@ function resetSelection(event) {
         //apply the correct color scale
     // draw the axis and bars based on the data input
 
+var svg = d3.select('svg#barchart')
+              .attr('width', width)
+              .attr('height', height)
+            .select("g.vis-g")
+              .attr("transform", "translate(" + margin.left + ", " + margin.top + ")");
+
+
+
+function updateChart() {
+  var dataPrep = preprocessData();
+  d3.select("g.vis-g").selectAll("*").remove();
+
+  var xScale = d3.scaleBand()
+    .domain(Array.from(dataPrep.keys())) //Alternative: [...new Set(newSelection.data().map(d => d.species))]
+    .range([margin.left, visWidth])
+    .padding(0.2);
+  svg.append("g")
+    .attr("class", "x-axis")
+    .attr("transform", "translate(0," + visHeight + ")")
+    .call(d3.axisBottom(xScale))
+      .selectAll("text")
+      .attr("transform", "translate(-10,0)rotate(-45)")
+      .style("text-anchor", "end");
+
+  var yScale = d3.scaleLinear()
+    .domain([0, d3.max(dataPrep, d => d[d.length - 1])])
+    .range([visHeight, margin.top])
+    .nice();
+  svg.append("g")
+    .attr("class", "y-axis")
+    .attr('transform', 'translate(' + margin.left +',0)')
+    .call(d3.axisLeft(yScale));
+
+  var bars = svg.selectAll("rect")
+    .data(dataPrep);
+
+  bars
+    .exit()
+    .remove();
+
+  bars.enter()
+    .append("rect")
+      .attr("x", d => xScale(d[0]))
+      .attr("y", d => yScale(d[1]))
+      .attr("width", xScale.bandwidth())
+      .attr("height", d => visHeight - yScale(d[1]))
+      .attr("fill", "#69b3a2")
+      .attr('fill', d => colorScale(d[0])); 
+
+  bars
+    .transition()
+    .duration(500);
+}
+
+function preprocessData() {
+  return d3.rollup(newSelection.data(), v => d3.sum(v, d => d.culmen_depth_mm), d => d.species);
+}
+
+updateChart();
 
 //TODO:
 //create function which returns a boolean value...
